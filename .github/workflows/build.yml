@@ -1,0 +1,45 @@
+name: Build
+on:
+  [push, workflow_dispatch]
+
+jobs:
+  extract-configs:
+    runs-on: ubuntu-24.04
+    outputs:
+      configs: ${{ steps.configs.outputs.configs }}
+    steps:
+    - uses: actions/checkout@v4
+    - id: configs
+      run: |
+          result=""
+          for config in configs/*.yml; do
+            if [[ ! -z "$result" ]]; then
+              result="$result,"
+            fi
+            result="$result\"$config\""
+          done
+          result="[$result]"
+          echo "configs: $result"
+          echo "configs=$result" >> $GITHUB_OUTPUT
+  build:
+    needs: extract-configs
+    strategy:
+      matrix:
+        file: ${{ fromJson(needs.extract-configs.outputs.configs) }}
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - run: mkdir -p frags
+    - name: parse config file
+      id: config
+      env:
+          CONFIG_FILE: ${{ matrix.file }}
+      run: |
+          python3 parse_yml.py
+    - name: build kernel
+      uses: ./.github/actions/build-kernel
+      with:
+          version: ${{ steps.config.outputs.version }}
+          ktype: ${{ steps.config.outputs.ktype }}
+          frag: ${{ steps.config.outputs.frag }}

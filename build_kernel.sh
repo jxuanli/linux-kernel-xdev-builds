@@ -103,6 +103,8 @@ if [[ "$UNAME_ARCH" != "$KERNEL_ARCH" ]]; then
   x86_64 | i386) CROSS=x86_64-linux-gnu- ;;
   *) CROSS="" ;;
   esac
+  export ARCH=$KERNEL_ARCH
+  export CROSS_COMPILE=$CROSS
 fi
 
 if [[ "$KERNEL_TYPE" == "linux" ]]; then
@@ -128,7 +130,7 @@ echo "building $KERNEL_TYPE kernel version $SRC_KERNEL_VERSION to directory $TAR
 mkdir -p $TARGET_DIR
 cd $TARGET_DIR
 echo "downloading and extracting $SRC_DIR_NAME ..."
-wget $ROOT_URL/$COMPRESSED_SRC -O ./$COMPRESSED_SRC
+wget -q $ROOT_URL/$COMPRESSED_SRC -O ./$COMPRESSED_SRC
 if [ $? -ne 0 ]; then
   echo "wget failed on getting the $KERNEL_TYPE kernel src code (url = $ROOT_URL/$COMPRESSED_SRC), exiting..."
   exit 1
@@ -152,8 +154,6 @@ if [ ! -z "$KERNEL_PATCH_FILE" ] && [ -f "$KERNEL_PATCH_FILE" ]; then
   cd -
 fi
 
-export ARCH=$KERNEL_ARCH
-export CROSS_COMPILE=$CROSS
 cd ./$SRC_DIR_NAME
 if [ -z "$KERNEL_CONFIG_FILE" ] || [ ! -f "$KERNEL_CONFIG_FILE" ]; then
   echo "config file is not specified or invalid"

@@ -29,4 +29,4 @@ runs:
     - name: running script to build kernel
       shell: bash
       run: |
-        ./build_kernel.sh -v ${{ inputs.version }} -t ${{ inputs.ktype }} -f ${{ inputs.frag }}
+        ./build_kernel.sh -v ${{ inputs.version }} -t ${{ inputs.ktype }} -j 4 -f ${{ inputs.frag }}

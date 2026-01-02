@@ -60,8 +60,14 @@ jobs:
     - name: rename kernel images
       id: rename
       run: |
+          pwd
+          ls -la
           SUFFIX=${{ steps.config.outputs.version }}-${{ needs.extract-configs.outputs.arch }}
           VMLINUX=vmlinux-$SUFFIX
+          OUTPUT_DIR=${{ steps.config.outputs.version }}
+          if [[ "$KERNEL_TYPE" == "linux" ]]; then
+            OUTPUT_DIR="linux-$OUTPUT_DIR"
+          fi
           mv $OUTPUT_DIR/vmlinux $VMLINUX
           KIMAGE=$(basename ${{ needs.extract-configs.outputs.kimage }})-$SUFFIX
           mv $OUTPUT_DIR/${{ needs.extract-configs.outputs.kimage }} $KIMAGE

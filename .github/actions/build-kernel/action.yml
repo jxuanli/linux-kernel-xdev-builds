@@ -26,3 +26,7 @@ runs:
         echo "frag path: ${{ inputs.frag }}"
         cat ${{ inputs.frag }}
         uname -m
+    - name: running script to build kernel
+      shell: bash
+      run: |
+        ./build_kernel.sh -v ${{ inputs.version }} -t ${{ inputs.ktype }} -f ${{ inputs.frag }}

@@ -4,15 +4,29 @@ on:
 
 jobs:
   extract-configs:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-24.04
+            dir: ./configs
+            kimage: arch/x86/boot/bzImage
+          # - arch: arm64
+          #   os: ubuntu-24.04-arm
+          #   dir: ./configs
+          #   kimage: arch/arm64/boot/Image
+          # add more architectures here
+    runs-on: ${{ matrix.os }}
     outputs:
       configs: ${{ steps.configs.outputs.configs }}
+      arch: ${{ matrix.arch }}
+      os: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
     - id: configs
       run: |
           result=""
-          for config in configs/*.yml; do
+          for config in ${{ matrix.dir }}/*.yml; do
             if [[ ! -z "$result" ]]; then
               result="$result,"
             fi
@@ -21,13 +35,13 @@ jobs:
           result="[$result]"
           echo "configs: $result"
           echo "configs=$result" >> $GITHUB_OUTPUT
+
   build:
     needs: extract-configs
     strategy:
       matrix:
         file: ${{ fromJson(needs.extract-configs.outputs.configs) }}
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ needs.extract-configs.outputs.os }}
     steps:
     - uses: actions/checkout@v4
     - run: mkdir -p frags
@@ -43,3 +57,54 @@ jobs:
           version: ${{ steps.config.outputs.version }}
           ktype: ${{ steps.config.outputs.ktype }}
           frag: ${{ steps.config.outputs.frag }}
+    - name: rename kernel images
+      id: rename
+      run: |
+          SUFFIX=${{ steps.config.outputs.version }}-${{ needs.extract-configs.outputs.arch }}
+          VMLINUX=vmlinux-$SUFFIX
+          mv $OUTPUT_DIR/vmlinux $VMLINUX
+          KIMAGE=$(basename ${{ needs.extract-configs.outputs.kimage }})-$SUFFIX
+          mv $OUTPUT_DIR/${{ needs.extract-configs.outputs.kimage }} $KIMAGE
+          echo "VMLINUX=$VMLINUX" >> $GITHUB_OUTPUT
+          echo "KIMAGE=$KIMAGE" >> $GITHUB_OUTPUT
+          echo "SUFFIX=$SUFFIX" >> $GITHUB_OUTPUT
+    - name: upload kernel images as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+          name: kimage-artifacts-${{ steps.rename.outputs.SUFFIX }}
+          path: |
+            steps.rename.outputs.KIMAGE
+            steps.rename.outputs.VMLINUX
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - name: Download kernel artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: kimage-artifacts-*
+        merge-multiple: true
+        path: kimage-artifacts
+    - run: ls -lR
+    - name: Compute hashsums and create hashsums.txt
+      shell: bash
+      run: |
+        shopt -s extglob
+        (cd kernel-artifacts && sha256sum *) > hashsums.txt
+    - name: generate release tag
+      id: tag
+      run: |
+        set -x
+        SHORT_HASH=${GITHUB_SHA:0:7}
+        DATE=$(date +'%Y.%m.%d')
+        echo "tag=${DATE}-${SHORT_HASH}" >> $GITHUB_OUTPUT
+    - name: Publish release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        files: |
+          kimage-artifacts/*
+          hashsums.txt

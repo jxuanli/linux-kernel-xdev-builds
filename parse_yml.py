@@ -10,4 +10,4 @@ f.write(f"frag={frag}\n")
 f = open(frag, "w+")
 kernel_configs = config["configs"]
 for config, val in kernel_configs.items():
-    f.write(f"{config}={val}")
+    f.write(f"{config}={val}\n")

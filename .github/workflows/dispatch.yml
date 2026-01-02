@@ -1,0 +1,60 @@
+name: Dispatch
+
+on:
+  [workflow_dispatch]
+
+jobs:
+  dispatch-kernel:
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            os: ubuntu-24.04
+            dir: ./configs
+            kimage: arch/x86/boot/bzImage
+          - arch: arm64
+            os: ubuntu-24.04-arm
+            dir: ./configs
+            kimage: arch/arm64/boot/Image
+          # add more architectures here
+    uses: ./.github/workflows/build.yml
+    with:
+        arch: ${{ matrix.arch }}
+        os: ${{ matrix.os }}
+        dir: ${{ matrix.dir }}
+        kimage: ${{ matrix.kimage }}
+
+  release:
+    needs: dispatch-kernel
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - name: Download kernel artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: kimage-artifacts-*
+        merge-multiple: true
+        path: kimage-artifacts
+    - run: ls -lR
+    - name: Compute hashsums and create hashsums.txt
+      shell: bash
+      run: |
+        shopt -s extglob
+        (cd kernel-artifacts && sha256sum *) > hashsums.txt
+    - name: generate release tag
+      id: tag
+      run: |
+        set -x
+        SHORT_HASH=${GITHUB_SHA:0:7}
+        DATE=$(date +'%Y.%m.%d')
+        echo "tag=${DATE}-${SHORT_HASH}" >> $GITHUB_OUTPUT
+    - name: Publish release
+      uses: softprops/action-gh-release@v2
+      with:
+        prerelease: true
+        tag_name: ${{ steps.tag.outputs.tag }}
+        files: |
+          kimage-artifacts/*
+          hashsums.txt
+

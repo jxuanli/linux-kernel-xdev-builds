@@ -16,7 +16,7 @@ ppc64le | powerpc64le) UNAME_ARCH="powerpc" ;;
 s390x) UNAME_ARCH="s390" ;;
 *) echo "unsupported host archticture" >&2 && exit 1 ;;
 esac
-KERNEL_ARCH=$UNAME_ARCH # TODO: default to be host archticture
+KERNEL_ARCH=$UNAME_ARCH
 KERNEL_TYPE="linux"
 DEFAULT_LINUX_VERSION="6.12.y"
 

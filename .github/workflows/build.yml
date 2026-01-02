@@ -1,32 +1,35 @@
 name: Build
 on:
-  [push, workflow_dispatch]
+  workflow_call:
+    inputs:
+      arch:
+        description: "Target architecture of the kernel."
+        required: true
+        type: string
+      os:
+        description: "The os of the runner used to build the kernel."
+        required: true
+        type: string
+      dir:
+        description: "The directory containing all build config files."
+        required: true
+        type: string
+      kimage:
+        description: "The path of kernel image relative to the source root directory."
+        required: true
+        type: string
 
 jobs:
   extract-configs:
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-            os: ubuntu-24.04
-            dir: ./configs
-            kimage: arch/x86/boot/bzImage
-          # - arch: arm64
-          #   os: ubuntu-24.04-arm
-          #   dir: ./configs
-          #   kimage: arch/arm64/boot/Image
-          # add more architectures here
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ inputs.os }}
     outputs:
       configs: ${{ steps.configs.outputs.configs }}
-      arch: ${{ matrix.arch }}
-      os: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
     - id: configs
       run: |
           result=""
-          for config in ${{ matrix.dir }}/*.yml; do
+          for config in ${{ inputs.dir }}/*.yml; do
             if [[ ! -z "$result" ]]; then
               result="$result,"
             fi
@@ -41,36 +44,47 @@ jobs:
     strategy:
       matrix:
         file: ${{ fromJson(needs.extract-configs.outputs.configs) }}
-    runs-on: ${{ needs.extract-configs.outputs.os }}
+    runs-on: ${{ inputs.os }}
     steps:
     - uses: actions/checkout@v4
-    - run: mkdir -p frags
+    - run: |
+        mkdir -p frags
+        echo "arch: $(uname -m)"
     - name: parse config file
       id: config
       env:
           CONFIG_FILE: ${{ matrix.file }}
       run: |
           python3 parse_yml.py
-    - name: build kernel
-      uses: ./.github/actions/build-kernel
-      with:
-          version: ${{ steps.config.outputs.version }}
-          ktype: ${{ steps.config.outputs.ktype }}
-          frag: ${{ steps.config.outputs.frag }}
+    - name: install apt packages
+      run: sudo apt update && sudo apt install -y build-essential flex bison libncurses-dev libelf-dev
+    - name: parameters
+      run: |
+        echo "version: ${{ steps.config.outputs.version }}"
+        echo "kernel type: ${{ steps.config.outputs.ktype }}"
+        echo "frag path: ${{ steps.config.outputs.frag }}"
+        cat ${{ steps.config.outputs.frag }}
+        echo
+    - name: running script to build kernel
+      run: ./build_kernel.sh -v ${{ steps.config.outputs.version }} -t ${{ steps.config.outputs.ktype }} -j 4 -f ${{ steps.config.outputs.frag }}
     - name: rename kernel images
       id: rename
       run: |
-          pwd
           ls -la
-          SUFFIX=${{ steps.config.outputs.version }}-${{ needs.extract-configs.outputs.arch }}
+          SUFFIX=${{ steps.config.outputs.version }}-${{ inputs.arch }}
           VMLINUX=vmlinux-$SUFFIX
-          OUTPUT_DIR=${{ steps.config.outputs.version }}
-          if [[ "$KERNEL_TYPE" == "linux" ]]; then
-            OUTPUT_DIR="linux-$OUTPUT_DIR"
+          SRC_KERNEL_VERSION=${{ steps.config.outputs.version }}
+          if [[ "${{ steps.config.outputs.ktype }}" == "linux" ]]; then
+            ROOT_URL="https://cdn.kernel.org/pub/linux/kernel/v$(echo $SRC_KERNEL_VERSION | cut -d"." -f1).x"
+            if [[ "$SRC_KERNEL_VERSION" == *.y ]]; then
+              SRC_KERNEL_VERSION=$(curl -s $ROOT_URL/ | grep -oE "${SRC_KERNEL_VERSION::-1}[0-9]+" | sort -r -V | head -n1)
+            fi
+            SRC_KERNEL_VERSION="linux-$SRC_KERNEL_VERSION"
           fi
+          OUTPUT_DIR=$SRC_KERNEL_VERSION
           mv $OUTPUT_DIR/vmlinux $VMLINUX
-          KIMAGE=$(basename ${{ needs.extract-configs.outputs.kimage }})-$SUFFIX
-          mv $OUTPUT_DIR/${{ needs.extract-configs.outputs.kimage }} $KIMAGE
+          KIMAGE=$(basename ${{ inputs.kimage }})-$SUFFIX
+          mv $OUTPUT_DIR/${{ inputs.kimage }} $KIMAGE
           echo "VMLINUX=$VMLINUX" >> $GITHUB_OUTPUT
           echo "KIMAGE=$KIMAGE" >> $GITHUB_OUTPUT
           echo "SUFFIX=$SUFFIX" >> $GITHUB_OUTPUT
@@ -81,36 +95,3 @@ jobs:
           path: |
             steps.rename.outputs.KIMAGE
             steps.rename.outputs.VMLINUX
-
-  release:
-    needs: build
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-    - name: Download kernel artifacts
-      uses: actions/download-artifact@v4
-      with:
-        pattern: kimage-artifacts-*
-        merge-multiple: true
-        path: kimage-artifacts
-    - run: ls -lR
-    - name: Compute hashsums and create hashsums.txt
-      shell: bash
-      run: |
-        shopt -s extglob
-        (cd kernel-artifacts && sha256sum *) > hashsums.txt
-    - name: generate release tag
-      id: tag
-      run: |
-        set -x
-        SHORT_HASH=${GITHUB_SHA:0:7}
-        DATE=$(date +'%Y.%m.%d')
-        echo "tag=${DATE}-${SHORT_HASH}" >> $GITHUB_OUTPUT
-    - name: Publish release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ steps.tag.outputs.tag }}
-        files: |
-          kimage-artifacts/*
-          hashsums.txt

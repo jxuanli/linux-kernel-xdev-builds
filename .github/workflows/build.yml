@@ -47,9 +47,6 @@ jobs:
     runs-on: ${{ inputs.os }}
     steps:
     - uses: actions/checkout@v4
-    - run: |
-        mkdir -p frags
-        echo "arch: $(uname -m)"
     - name: parse config file
       id: config
       env:
@@ -60,11 +57,11 @@ jobs:
       run: sudo apt update && sudo apt install -y build-essential flex bison libncurses-dev libelf-dev
     - name: parameters
       run: |
+        echo "runner arch: $(uname -m)"
         echo "version: ${{ steps.config.outputs.version }}"
         echo "kernel type: ${{ steps.config.outputs.ktype }}"
         echo "frag path: ${{ steps.config.outputs.frag }}"
         cat ${{ steps.config.outputs.frag }}
-        echo
     - name: running script to build kernel
       run: ./build_kernel.sh -v ${{ steps.config.outputs.version }} -t ${{ steps.config.outputs.ktype }} -j 4 -f ${{ steps.config.outputs.frag }}
     - name: rename kernel images
@@ -88,10 +85,12 @@ jobs:
           echo "VMLINUX=$VMLINUX" >> $GITHUB_OUTPUT
           echo "KIMAGE=$KIMAGE" >> $GITHUB_OUTPUT
           echo "SUFFIX=$SUFFIX" >> $GITHUB_OUTPUT
+          ls -la $VMLINUX
+          ls -la $KIMAGE
     - name: upload kernel images as artifacts
       uses: actions/upload-artifact@v4
       with:
           name: kimage-artifacts-${{ steps.rename.outputs.SUFFIX }}
           path: |
-            steps.rename.outputs.KIMAGE
-            steps.rename.outputs.VMLINUX
+            ${{ steps.rename.outputs.KIMAGE }}
+            ${{ steps.rename.outputs.VMLINUX }}

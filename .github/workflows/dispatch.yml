@@ -1,4 +1,4 @@
-name: Dispatch
+name: Dispatch and release
 
 on:
   [workflow_dispatch]
@@ -31,7 +31,7 @@ jobs:
       contents: write
     steps:
     - name: Download kernel artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         pattern: kimage-artifacts-*
         merge-multiple: true
@@ -41,7 +41,7 @@ jobs:
       shell: bash
       run: |
         shopt -s extglob
-        (cd kernel-artifacts && sha256sum *) > hashsums.txt
+        (cd ./kimage-artifacts && sha256sum *) > hashsums.txt
     - name: generate release tag
       id: tag
       run: |

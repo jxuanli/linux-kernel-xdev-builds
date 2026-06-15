@@ -25,7 +25,7 @@ jobs:
     outputs:
       configs: ${{ steps.configs.outputs.configs }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - id: configs
       run: |
           result=""
@@ -46,7 +46,7 @@ jobs:
         file: ${{ fromJson(needs.extract-configs.outputs.configs) }}
     runs-on: ${{ inputs.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: parse config file
       id: config
       env:
@@ -88,7 +88,7 @@ jobs:
           ls -la $VMLINUX
           ls -la $KIMAGE
     - name: upload kernel images as artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
           name: kimage-artifacts-${{ steps.rename.outputs.SUFFIX }}
           path: |

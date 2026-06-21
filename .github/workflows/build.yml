@@ -67,11 +67,11 @@ jobs:
             fi
             SRC_KERNEL_VERSION="linux-$SRC_KERNEL_VERSION"
           fi
+          SUFFIX=$SRC_KERNEL_VERSION-${{ inputs.arch }}
           echo "vmlinux=$VMLINUX" >> $GITHUB_OUTPUT
           echo "kimage=$KIMAGE" >> $GITHUB_OUTPUT
           echo "version=$SRC_KERNEL_VERSION" >> $GITHUB_OUTPUT
-          SUFFIX=$SRC_KERNEL_VERSION-${{ inputs.arch }}
-          echo "suffix=$SUFFIX"
+          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
     - name: restore cache
       id: cache
       uses: actions/cache@v5

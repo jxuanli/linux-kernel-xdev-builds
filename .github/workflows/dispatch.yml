@@ -31,7 +31,7 @@ jobs:
       contents: write
     steps:
     - name: Download kernel artifacts
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v7
       with:
         pattern: kimage-artifacts-*
         merge-multiple: true
@@ -50,7 +50,7 @@ jobs:
         DATE=$(date +'%Y.%m.%d')
         echo "tag=${DATE}-${SHORT_HASH}" >> $GITHUB_OUTPUT
     - name: Publish release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         prerelease: true
         tag_name: ${{ steps.tag.outputs.tag }}

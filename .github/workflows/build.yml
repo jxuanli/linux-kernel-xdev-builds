@@ -78,20 +78,25 @@ jobs:
           ${{ steps.targets.outputs.vmlinux }}
           ${{ steps.targets.outputs.kimage }}
         key: ${{ steps.targets.outputs.version }}-${{ hashFiles(matrix.file) }}
-    - name: running script to build kernel
-      if: steps.cache.outputs.cache-hit != 'true'
+    - name: parameters
       run: |
         echo "runner arch: $(uname -m)"
         echo "version: ${{ steps.config.outputs.version }}"
         echo "kernel type: ${{ steps.config.outputs.ktype }}"
+        echo "------------------------------------"
         echo "frag path: ${{ steps.config.outputs.frag }}"
-        sudo apt update &> /dev/null && sudo apt install -y build-essential flex bison libncurses-dev libelf-dev &> /dev/null
         cat ${{ steps.config.outputs.frag }}
+        echo "------------------------------------"
+    - name: running script to build kernel
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt update &> /dev/null && sudo apt install -y build-essential flex bison libncurses-dev libelf-dev &> /dev/null
         ./build_kernel.sh -v ${{ steps.config.outputs.version }} -t ${{ steps.config.outputs.ktype }} -j 4 -f ${{ steps.config.outputs.frag }}
         OUTPUT_DIR=${{ steps.targets.outputs.version }}
         mv $OUTPUT_DIR/vmlinux ${{ steps.targets.outputs.vmlinux }}
         mv $OUTPUT_DIR/${{ inputs.kimage }} ${{ steps.targets.outputs.kimage }}
-    - run: |
+    - name: list files to be uploaded
+      run: |
         ls -la ${{ steps.targets.outputs.vmlinux }}
         ls -la ${{ steps.targets.outputs.kimage }}
     - name: upload kernel images as artifacts

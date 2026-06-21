@@ -171,7 +171,7 @@ elif [ -z "$KERNEL_CONFIG_FILE" ] || [ ! -f "$KERNEL_CONFIG_FILE" ]; then
 fi
 
 echo "building $SRC_DIR_NAME kernel..."
-make -j $NUM_OF_CORES
+make -s -j $NUM_OF_CORES
 
 if [ $? -ne 0 ]; then
   echo "failed building the kernel, exiting..."

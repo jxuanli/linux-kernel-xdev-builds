@@ -56,9 +56,6 @@ jobs:
     - name: target names
       id: targets
       run: |
-          SUFFIX=${{ steps.config.outputs.version }}-${{ inputs.arch }}
-          VMLINUX=vmlinux-$SUFFIX
-          KIMAGE=$(basename ${{ inputs.kimage }})-$SUFFIX
           SRC_KERNEL_VERSION=${{ steps.config.outputs.version }}
           if [[ "${{ steps.config.outputs.ktype }}" == "linux" ]]; then
             ROOT_URL="https://cdn.kernel.org/pub/linux/kernel/v$(echo $SRC_KERNEL_VERSION | cut -d"." -f1).x"
@@ -68,6 +65,8 @@ jobs:
             SRC_KERNEL_VERSION="linux-$SRC_KERNEL_VERSION"
           fi
           SUFFIX=$SRC_KERNEL_VERSION-${{ inputs.arch }}
+          VMLINUX=vmlinux-$SUFFIX
+          KIMAGE=$(basename ${{ inputs.kimage }})-$SUFFIX
           echo "vmlinux=$VMLINUX" >> $GITHUB_OUTPUT
           echo "kimage=$KIMAGE" >> $GITHUB_OUTPUT
           echo "version=$SRC_KERNEL_VERSION" >> $GITHUB_OUTPUT
